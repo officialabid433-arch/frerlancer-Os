@@ -1,0 +1,222 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Global Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email != null && 
+             request.auth.token.email == "usainpakistanvpn@gmail.com";
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (isBootstrappedAdmin() || exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    // --- User Profiles ---
+    function isValidUser(data) {
+      return data.userId == request.auth.uid 
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 150
+        && data.role == "user"
+        && data.status in ["active", "suspended"]
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 120))
+        && (!('profilePhoto' in data) || (data.profilePhoto is string && data.profilePhoto.size() <= 1000))
+        && (!('freelancerCategory' in data) || (data.freelancerCategory is string && data.freelancerCategory.size() <= 100))
+        && (!('country' in data) || (data.country is string && data.country.size() <= 100));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isOwner(userId) && isValidUser(incoming()) 
+        && incoming().createdAt == existing().createdAt
+        && (!('updatedAt' in incoming()) || incoming().updatedAt == request.time)
+        && incoming().role == existing().role)
+        || (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status']));
+      allow delete: if isAdmin();
+    }
+
+    // --- Admin Profiles ---
+    function isValidAdmin(data) {
+      return data.adminId is string && data.adminId.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 150
+        && data.role == "admin"
+        && data.status == "active";
+    }
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && request.auth.uid == adminId;
+      allow get: if isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && request.auth.uid == adminId && (isBootstrappedAdmin() || isAdmin()) && isValidAdmin(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidAdmin(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && adminId != request.auth.uid;
+    }
+
+    // --- Subscriptions ---
+    function isValidSubscription(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.userEmail is string && data.userEmail.size() > 0 && data.userEmail.size() <= 150
+        && data.plan in ["Starter", "Grower", "Professional", "Enterprise"]
+        && data.price is number && data.price >= 0
+        && data.billingCycle in ["monthly", "yearly"]
+        && data.status in ["active", "cancelled", "expired", "trialing"];
+    }
+
+    match /subscriptions/{subscriptionId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin()) && isValidSubscription(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidSubscription(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if isAdmin();
+    }
+
+    // --- Clients ---
+    function isValidClient(data) {
+      return data.userId == request.auth.uid
+        && data.clientName is string && data.clientName.size() > 0 && data.clientName.size() <= 100
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 150
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+        && (!('company' in data) || (data.company is string && data.company.size() <= 120))
+        && (!('country' in data) || (data.country is string && data.country.size() <= 100))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 5000))
+        && data.status in ['Active', 'Inactive', 'Lead'];
+    }
+
+    match /clients/{clientId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(clientId) && incoming().userId == request.auth.uid && isValidClient(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid && isValidClient(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time;
+      allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // --- Projects ---
+    function isValidProject(data) {
+      return data.userId == request.auth.uid
+        && data.clientId is string && data.clientId.size() <= 128
+        && data.projectName is string && data.projectName.size() > 0 && data.projectName.size() <= 150
+        && (!('description' in data) || (data.description is string && data.description.size() <= 5000))
+        && data.budget is number && data.budget >= 0
+        && (!('deadline' in data) || (data.deadline is string && data.deadline.size() <= 100))
+        && data.status in ['Pending', 'In Progress', 'Completed', 'Cancelled'];
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(projectId) && incoming().userId == request.auth.uid && isValidProject(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid && isValidProject(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time)
+        || (isAdmin() && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time);
+      allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // --- Invoices ---
+    function isValidInvoice(data) {
+      return data.userId == request.auth.uid
+        && data.clientId is string && data.clientId.size() <= 128
+        && data.clientName is string && data.clientName.size() > 0 && data.clientName.size() <= 100
+        && data.invoiceNumber is string && data.invoiceNumber.size() > 0 && data.invoiceNumber.size() <= 50
+        && data.invoiceDate is string && data.invoiceDate.size() <= 50
+        && data.dueDate is string && data.dueDate.size() <= 50
+        && data.items is list && data.items.size() <= 100
+        && data.totalAmount is number && data.totalAmount >= 0
+        && data.status in ['Paid', 'Unpaid', 'Overdue'];
+    }
+
+    match /invoices/{invoiceId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(invoiceId) && incoming().userId == request.auth.uid && isValidInvoice(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid && isValidInvoice(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time)
+        || (isAdmin() && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time);
+      allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // --- Payments ---
+    function isValidPayment(data) {
+      return data.userId == request.auth.uid
+        && data.invoiceId is string && data.invoiceId.size() <= 128
+        && data.invoiceNumber is string && data.invoiceNumber.size() > 0 && data.invoiceNumber.size() <= 50
+        && data.amount is number && data.amount >= 0
+        && data.paymentDate is string && data.paymentDate.size() <= 50
+        && data.paymentStatus in ['Paid', 'Unpaid', 'Overdue'];
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(paymentId) && incoming().userId == request.auth.uid && isValidPayment(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid && incoming().userId == request.auth.uid && isValidPayment(incoming()) && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time)
+        || (isAdmin() && incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time);
+      allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+
+    // --- Activities ---
+    function isValidActivity(data) {
+      return data.userId == request.auth.uid
+        && data.description is string && data.description.size() > 0 && data.description.size() <= 1000
+        && data.type in ['auth', 'client', 'project', 'invoice', 'payment'];
+    }
+
+    match /activities/{activityId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && (incoming().userId == request.auth.uid || isAdmin()) && isValidActivity(incoming()) && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // --- Emails / Transactional Notifications ---
+    function isValidEmail(data) {
+      return data.userId == request.auth.uid
+        && data.recipientEmail is string && data.recipientEmail.size() > 0 && data.recipientEmail.size() <= 150
+        && data.recipientName is string && data.recipientName.size() >= 0 && data.recipientName.size() <= 100
+        && data.subject is string && data.subject.size() > 0 && data.subject.size() <= 200
+        && data.body is string && data.body.size() > 0 && data.body.size() <= 5000
+        && data.triggerEvent in ['invoice_created', 'payment_received', 'payment_reminder', 'deadline_approaching']
+        && data.status in ['sent', 'failed', 'simulated']
+        && (!('referenceId' in data) || (data.referenceId is string && data.referenceId.size() <= 128))
+        && (!('referenceNumber' in data) || (data.referenceNumber is string && data.referenceNumber.size() <= 150));
+    }
+
+    match /emails/{emailId} {
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isValidId(emailId) && incoming().userId == request.auth.uid && isValidEmail(incoming()) && incoming().sentAt == request.time;
+      allow update: if false;
+      allow delete: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+    }
+  }
+}

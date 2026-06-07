@@ -1,0 +1,6 @@
+{
+  "name": "Freelancer OS",
+  "description": "All-in-one SaaS workspace for freelancers to easily handle clients, projects, invoices, and payments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

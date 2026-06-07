@@ -1,0 +1,197 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Freelancer user profile details including company, role status and details.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The unique Firebase Auth User ID." },
+        "name": { "type": "string", "description": "Full name of the freelancer user." },
+        "email": { "type": "string", "description": "Registered email of the user." },
+        "profilePhoto": { "type": "string", "description": "URL to the profile photo." },
+        "companyName": { "type": "string", "description": "Optional registered company name." },
+        "freelancerCategory": { "type": "string", "description": "Category e.g., Design, Engineering." },
+        "country": { "type": "string", "description": "Country of residence." },
+        "role": { "type": "string", "enum": ["user"], "description": "The RBAC role role for user accounts." },
+        "status": { "type": "string", "enum": ["active", "suspended"], "description": "State status of the user account." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account registration timestamp." }
+      },
+      "required": ["userId", "name", "email", "role", "status", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin Profile",
+      "description": "Platform administrator credentials and profile details.",
+      "type": "object",
+      "properties": {
+        "adminId": { "type": "string", "description": "The unique Firebase Auth Admin User ID." },
+        "name": { "type": "string", "description": "Full name of the admin." },
+        "email": { "type": "string", "description": "Registered email of the admin." },
+        "role": { "type": "string", "enum": ["admin"], "description": "The admin RBAC role." },
+        "status": { "type": "string", "enum": ["active"], "description": "State of admin." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp when admin status created." }
+      },
+      "required": ["adminId", "name", "email", "role", "status", "createdAt"]
+    },
+    "Subscription": {
+      "title": "Platform Subscription",
+      "description": "SaaS plan subscriptions for user accounts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Subscription Record ID." },
+        "userId": { "type": "string", "description": "Reference to subscriber User ID." },
+        "userEmail": { "type": "string", "description": "Subscriber account email address." },
+        "plan": { "type": "string", "enum": ["Starter", "Grower", "Professional", "Enterprise"] },
+        "price": { "type": "number", "description": "Plan charge price in dollars." },
+        "billingCycle": { "type": "string", "enum": ["monthly", "yearly"] },
+        "status": { "type": "string", "enum": ["active", "cancelled", "expired", "trialing"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userEmail", "plan", "price", "billingCycle", "status", "createdAt"]
+    },
+    "Client": {
+      "title": "Client Record",
+      "description": "Client profile details and status managed by the user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique record identifier." },
+        "userId": { "type": "string", "description": "Owner freelancer User ID." },
+        "clientName": { "type": "string", "description": "Contact name of the client." },
+        "email": { "type": "string", "description": "Primary email of the client." },
+        "phone": { "type": "string", "description": "Contact number." },
+        "company": { "type": "string", "description": "Client corporate entity." },
+        "country": { "type": "string", "description": "Primary country." },
+        "notes": { "type": "string", "description": "Important memos or instructions." },
+        "status": { "type": "string", "enum": ["Active", "Inactive", "Lead"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "clientName", "email", "status", "createdAt"]
+    },
+    "Project": {
+      "title": "Project Detail",
+      "description": "A deliverable project associated with a specific client.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier." },
+        "userId": { "type": "string", "description": "Owner freelancer User ID." },
+        "clientId": { "type": "string", "description": "Associated Client ID." },
+        "projectName": { "type": "string", "description": "Name of the project." },
+        "description": { "type": "string", "description": "Project tasks scope." },
+        "budget": { "type": "number", "description": "Contract budget." },
+        "deadline": { "type": "string", "description": "Expected delivery date." },
+        "status": { "type": "string", "enum": ["Pending", "In Progress", "Completed", "Cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "clientId", "projectName", "budget", "status", "createdAt"]
+    },
+    "Invoice": {
+      "title": "Invoice Details",
+      "description": "Generated bill for client tasks containing billable items.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Auto generated Invoice ID." },
+        "invoiceNumber": { "type": "string", "description": "Auto-incremented or formatted billing serial number." },
+        "userId": { "type": "string", "description": "Owner freelancer ID." },
+        "clientId": { "type": "string", "description": "Billed Client ID." },
+        "clientName": { "type": "string", "description": "Name of the billed client." },
+        "invoiceDate": { "type": "string", "description": "Date of emission." },
+        "dueDate": { "type": "string", "description": "Date payment is expected." },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number", "description": "Grand total of billing items." },
+        "status": { "type": "string", "enum": ["Paid", "Unpaid", "Overdue"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "invoiceNumber", "userId", "clientId", "clientName", "invoiceDate", "dueDate", "items", "totalAmount", "status", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment History Record",
+      "description": "A payment ledger tracking invoices settlement statuses.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "paymentDate": { "type": "string" },
+        "paymentStatus": { "type": "string", "enum": ["Paid", "Unpaid", "Overdue"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "invoiceId", "invoiceNumber", "amount", "paymentDate", "paymentStatus", "createdAt"]
+    },
+    "Activity": {
+      "title": "Recent Activity Event",
+      "description": "Historical log tracking audit changes inside Freelancer OS.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["auth", "client", "project", "invoice", "payment"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "description", "type", "createdAt"]
+    },
+    "NotificationEmail": {
+      "title": "Transactional Notification Email",
+      "description": "Logger entry of a transactional customer alert sent by Freelancer OS.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "The author freelancer User ID." },
+        "recipientEmail": { "type": "string" },
+        "recipientName": { "type": "string" },
+        "subject": { "type": "string" },
+        "body": { "type": "string" },
+        "triggerEvent": { "type": "string", "enum": ["invoice_created", "payment_received", "payment_reminder", "deadline_approaching"] },
+        "status": { "type": "string", "enum": ["sent", "failed", "simulated"] },
+        "sentAt": { "type": "string", "format": "date-time" },
+        "referenceId": { "type": "string" },
+        "referenceNumber": { "type": "string" }
+      },
+      "required": ["id", "userId", "recipientEmail", "recipientName", "subject", "body", "triggerEvent", "status", "sentAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles root documents partitioned by auth uid."
+    },
+    "admins/{adminId}": {
+      "schema": "Admin",
+      "description": "Admin profiles root documents stored by high-privilege auth uid."
+    },
+    "subscriptions/{subscriptionId}": {
+      "schema": "Subscription",
+      "description": "Platform billing and tiers status."
+    },
+    "clients/{clientId}": {
+      "schema": "Client",
+      "description": "Client details mapped to unique Client IDs."
+    },
+    "projects/{projectId}": {
+      "schema": "Project",
+      "description": "Project deliverables for client accounts."
+    },
+    "invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Invoices records billing client works."
+    },
+    "payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payments tracking logs."
+    },
+    "activities/{activityId}": {
+      "schema": "Activity",
+      "description": "User activity ledger timestamps."
+    },
+    "emails/{emailId}": {
+      "schema": "NotificationEmail",
+      "description": "Transactional emails and notification logs dispatched to clients."
+    }
+  }
+}
